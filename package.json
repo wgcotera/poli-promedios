@@ -1,0 +1,20 @@
+{
+  "name": "polipromedios",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "parcel src/index.html"
+  },
+  "author": "wgcotera",
+  "license": "ISC",
+  "devDependencies": {
+    "@parcel/core": "^2.12.0",
+    "@parcel/transformer-elm": "^2.12.0",
+    "elm": "^0.19.1-6",
+    "elm-format": "^0.8.7",
+    "parcel": "^2.12.0",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3"
+  }
+}
