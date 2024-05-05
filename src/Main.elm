@@ -5,20 +5,37 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Http
+import Json.Decode exposing (Decoder, bool, float, succeed)
+import Json.Decode.Pipeline exposing (required)
+import Json.Encode as Encode
 import Result exposing (Result)
 
 
 main : Program () Model Msg
 main =
-    Browser.sandbox
+    Browser.element
         { init = init
         , view = view
         , update = update
+        , subscriptions = subscriptions
         }
 
 
 
 -- MODEL
+
+
+type Grade
+    = NotEntered
+    | Entered Float
+    | Error String
+
+
+type alias GradeResult =
+    { pass : Bool
+    , missing : Float
+    , grade : Float
+    }
 
 
 type alias Model =
@@ -27,24 +44,21 @@ type alias Model =
     , practico : Grade
     , mejoramiento : Grade
     , porcentajePractico : Grade
-    , grade : Grade
+    , result : GradeResult
     }
 
 
-type Grade
-    = NotEntered
-    | Entered Float
-
-
-init : Model
-init =
-    { primerParcial = NotEntered
-    , segundoParcial = NotEntered
-    , practico = NotEntered
-    , mejoramiento = NotEntered
-    , porcentajePractico = NotEntered
-    , grade = NotEntered
-    }
+init : () -> ( Model, Cmd Msg )
+init () =
+    ( { primerParcial = NotEntered
+      , segundoParcial = NotEntered
+      , practico = NotEntered
+      , mejoramiento = NotEntered
+      , porcentajePractico = NotEntered
+      , result = GradeResult False 0 0
+      }
+    , Cmd.none
+    )
 
 
 
@@ -58,47 +72,35 @@ type Msg
     | UpdateMejoramiento String
     | UpdatePorcentajePractico String
     | CalculateGrade
-    | CalculateGradeResult (Result Http.Error Float)
+    | UpdateResult (Result Http.Error GradeResult)
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdatePrimerParcial primer_parcial ->
-            { model | primerParcial = toGrade primer_parcial }
+            ( { model | primerParcial = parseGrade primer_parcial }, Cmd.none )
 
         UpdateSegundoParcial segundo_parcial ->
-            { model | segundoParcial = toGrade segundo_parcial }
+            ( { model | segundoParcial = parseGrade segundo_parcial }, Cmd.none )
 
         UpdatePractico practico ->
-            { model | practico = toGrade practico }
+            ( { model | practico = parseGrade practico }, Cmd.none )
 
         UpdateMejoramiento mejoramiento ->
-            { model | mejoramiento = toGrade mejoramiento }
+            ( { model | mejoramiento = parseGrade mejoramiento }, Cmd.none )
 
         UpdatePorcentajePractico porcentaje_practico ->
-            { model | porcentajePractico = toGrade porcentaje_practico }
+            ( { model | porcentajePractico = parseGrade porcentaje_practico }, Cmd.none )
 
         CalculateGrade ->
-            { model
-                | grade = NotEntered
-            }
+            ( model, getResult model )
 
-        CalculateGradeResult (Ok grade) ->
-            { model | grade = Entered grade }
+        UpdateResult (Ok result) ->
+            ( { model | result = result }, Cmd.none )
 
-        CalculateGradeResult (Err _) ->
-            { model | grade = NotEntered }
-
-
-toGrade : String -> Grade
-toGrade str =
-    case String.toFloat str of
-        Just value ->
-            Entered value
-
-        Nothing ->
-            NotEntered
+        UpdateResult (Err _) ->
+            ( model, Cmd.none )
 
 
 
@@ -116,15 +118,89 @@ view model =
             , inputComponent "Porcentaje Practico" UpdatePorcentajePractico
             , button [ class "border border-gray-400 rounded-lg p-2 m-2", onClick CalculateGrade ] [ text "Calcular Nota" ]
             ]
-        , case model.grade of
-            Entered grade ->
-                div [ class "text-5xl" ] [ text <| "* " ++ String.fromFloat grade ++ " *" ]
+        , div [ class "flex flex-col items-center" ]
+            [ div [] [ text <| "Nota Final: " ++ String.fromFloat model.result.grade ]
+            , div []
+                [ text <|
+                    if model.result.pass then
+                        "APROBASTE"
 
-            NotEntered ->
-                div [] []
+                    else
+                        "KILL YOURSELF"
+                ]
+            ]
         ]
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
+
+-- COMPONENTS
 
 
 inputComponent : String -> (String -> msg) -> Html msg
 inputComponent placeholderMsg msg =
     input [ class "border border-gray-400 rounded-lg p-2 m-2", onInput msg, placeholder placeholderMsg ] []
+
+
+
+-- HELPERS
+
+
+parseGrade : String -> Grade
+parseGrade str =
+    case String.toFloat str of
+        Just value ->
+            Entered value
+
+        Nothing ->
+            NotEntered
+
+
+gradeToFloat : Grade -> Float
+gradeToFloat grade =
+    case grade of
+        Entered value ->
+            value
+
+        _ ->
+            0
+
+
+payloadEncoder : Model -> Encode.Value
+payloadEncoder model =
+    Encode.object
+        [ ( "primer_parcial", Encode.float <| gradeToFloat model.primerParcial )
+        , ( "segundo_parcial", Encode.float <| gradeToFloat model.segundoParcial )
+        , ( "practico", Encode.float <| gradeToFloat model.practico )
+        , ( "mejoramiento", Encode.float <| gradeToFloat model.mejoramiento )
+        , ( "porcentaje_practico", Encode.float <| gradeToFloat model.porcentajePractico )
+        ]
+
+
+
+-- API
+
+
+resultDecoder : Decoder GradeResult
+resultDecoder =
+    succeed GradeResult
+        |> required "pass" bool
+        |> required "missing" float
+        |> required "grade" float
+
+
+getResult : Model -> Cmd Msg
+getResult model =
+    Http.post
+        { url = "http://localhost:3000/promedios"
+        , body = Http.jsonBody <| payloadEncoder model
+        , expect = Http.expectJson UpdateResult resultDecoder
+        }
