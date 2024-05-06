@@ -1,8 +1,8 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, input, text)
-import Html.Attributes exposing (class, placeholder)
+import Html exposing (Html, button, div, img, input, text)
+import Html.Attributes exposing (class, placeholder, src)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, bool, float, nullable, succeed)
@@ -55,7 +55,7 @@ init () =
       , practico = NotEntered
       , mejoramiento = NotEntered
       , porcentajePractico = NotEntered
-      , result = { pass = Nothing, missing = Nothing, grade = Nothing }
+      , result = GradeResult Nothing Nothing Nothing
       }
     , Cmd.none
     )
@@ -79,19 +79,19 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdatePrimerParcial primer_parcial ->
-            ( { model | primerParcial = parseGrade primer_parcial }, Cmd.none )
+            ( { model | primerParcial = parseGrade primer_parcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         UpdateSegundoParcial segundo_parcial ->
-            ( { model | segundoParcial = parseGrade segundo_parcial }, Cmd.none )
+            ( { model | segundoParcial = parseGrade segundo_parcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         UpdatePractico practico ->
-            ( { model | practico = parseGrade practico }, Cmd.none )
+            ( { model | practico = parseGrade practico, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         UpdateMejoramiento mejoramiento ->
-            ( { model | mejoramiento = parseGrade mejoramiento }, Cmd.none )
+            ( { model | mejoramiento = parseGrade mejoramiento, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         UpdatePorcentajePractico porcentaje_practico ->
-            ( { model | porcentajePractico = parseGrade porcentaje_practico }, Cmd.none )
+            ( { model | porcentajePractico = parseGrade porcentaje_practico, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         CalculateGrade ->
             ( model, getResult model )
@@ -109,8 +109,8 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ class "h-screen flex flex-col-reverse lg:flex-row justify-center items-center gap-12" ]
-        [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3" ]
+    div [ class "h-screen flex flex-col-reverse lg:flex-row justify-center items-center gap-12 " ]
+        [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3 border-2 border-blue-950 rounded py-12 px-6" ]
             [ div [ class "flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center" ]
                 [ div [ class "w-full flex flex-col gap-4" ]
                     [ inputComponent "Primer Parcial" UpdatePrimerParcial
@@ -120,7 +120,7 @@ view model =
                 , div [ class "w-full flex flex-col gap-4" ]
                     [ inputComponent "Practico" UpdatePractico
                     , inputComponent "Porcentaje Practico" UpdatePorcentajePractico
-                    , button [ class "border border-gray-400 rounded-lg bg-blue-900 text-white uppercase p-2 w-full", onClick CalculateGrade ] [ text "Calcular" ]
+                    , button [ class "border border-gray-400 rounded-lg bg-blue-950 text-white uppercase p-2 w-full", onClick CalculateGrade ] [ text "Calcular" ]
                     ]
                 ]
             ]
@@ -150,8 +150,29 @@ viewGrade : Maybe Float -> Html msg
 viewGrade maybeGrade =
     case maybeGrade of
         Just grade ->
-            div []
-                [ text <| String.fromFloat grade
+            div
+                [ class <|
+                    "text-2xl "
+                        ++ (if grade < 60 then
+                                "text-red-700"
+
+                            else
+                                "text-green-700"
+                           )
+                ]
+                [ text <| "Tu nota es: " ++ String.fromFloat grade ]
+
+        Nothing ->
+            div [] []
+
+
+viewMissing : Maybe Float -> Html msg
+viewMissing maybeMissing =
+    case maybeMissing of
+        Just missing ->
+            div [ class "text-2xl" ]
+                [ text "Debes sacar: "
+                , text <| String.fromFloat missing
                 ]
 
         Nothing ->
@@ -162,13 +183,13 @@ viewPassMsg : Maybe Bool -> Html msg
 viewPassMsg maybePass =
     case maybePass of
         Just pass ->
-            div []
+            div [ class <| "text-2xl " ]
                 [ text <|
                     if pass then
-                        "Great, you pass"
+                        "¡Buen trabajo, aprobaste!"
 
                     else
-                        "Sad, you didn't pass :("
+                        ":c"
                 ]
 
         Nothing ->
@@ -178,9 +199,17 @@ viewPassMsg maybePass =
 viewResult : GradeResult -> Html msg
 viewResult result =
     div [ class "flex flex-col items-center" ]
-        [ viewPassMsg result.pass
+        [ div []
+            [ img [ src "https://img.icons8.com/external-itim2101-fill-itim2101/64/000000/external-turtle-plastic-pollution-itim2101-fill-itim2101-2.png", class "mb-4" ] []
+            ]
         , viewGrade result.grade
-        , viewGrade result.missing
+        , viewPassMsg result.pass
+        , case result.missing of
+            Just missing ->
+                viewMissing <| Just missing
+
+            Nothing ->
+                div [] []
         ]
 
 
