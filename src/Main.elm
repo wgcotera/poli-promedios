@@ -1,8 +1,8 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, img, input, text)
-import Html.Attributes exposing (class, placeholder, src)
+import Html exposing (Html, button, div, img, input, label, text)
+import Html.Attributes exposing (class, src)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, bool, float, nullable, succeed)
@@ -78,11 +78,11 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        UpdatePrimerParcial primer_parcial ->
-            ( { model | primerParcial = parseGrade primer_parcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+        UpdatePrimerParcial primerParcial ->
+            ( { model | primerParcial = parseGrade primerParcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
-        UpdateSegundoParcial segundo_parcial ->
-            ( { model | segundoParcial = parseGrade segundo_parcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+        UpdateSegundoParcial segundoParcial ->
+            ( { model | segundoParcial = parseGrade segundoParcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
         UpdatePractico practico ->
             ( { model | practico = parseGrade practico, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
@@ -113,16 +113,20 @@ view model =
         [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3 border-2 border-blue-950 rounded py-12 px-6" ]
             [ div [ class "flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center" ]
                 [ div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Primer Parcial" UpdatePrimerParcial
-                    , inputComponent "Segundo Parcial" UpdateSegundoParcial
-                    , inputComponent "Mejoramiento" UpdateMejoramiento
+                    [ inputComponent "Primer Parcial:" UpdatePrimerParcial
+                    , inputComponent "Segundo Parcial:" UpdateSegundoParcial
+                    , inputComponent "Mejoramiento:" UpdateMejoramiento
                     ]
                 , div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Practico" UpdatePractico
-                    , inputComponent "Porcentaje Practico" UpdatePorcentajePractico
-                    , button [ class "border border-gray-400 rounded-lg bg-blue-950 text-white uppercase p-2 w-full", onClick CalculateGrade ] [ text "Calcular" ]
+                    [ inputComponent "Practico:" UpdatePractico
+                    , inputComponent "Porcentaje Practico:" UpdatePorcentajePractico
                     ]
                 ]
+            , button
+                [ class "border border-gray-400 rounded-lg bg-blue-950 text-white uppercase p-2 mt-6 w-full md:w-2/3 lg:w-1/2 mx-auto  self-end"
+                , onClick CalculateGrade
+                ]
+                [ text "Calcular" ]
             ]
         , viewResult model.result
         ]
@@ -142,8 +146,11 @@ subscriptions model =
 
 
 inputComponent : String -> (String -> msg) -> Html msg
-inputComponent placeholderMsg msg =
-    input [ class "border border-gray-400 rounded-lg p-2 text-right w-full", onInput msg, placeholder placeholderMsg ] []
+inputComponent labelTxt msg =
+    div []
+        [ label [ class "text-blue-950" ] [ text labelTxt ]
+        , input [ class "border border-gray-400 rounded-lg p-2 text-right w-full", onInput msg ] []
+        ]
 
 
 viewGrade : Maybe Float -> Html msg
@@ -200,7 +207,11 @@ viewResult : GradeResult -> Html msg
 viewResult result =
     div [ class "flex flex-col items-center" ]
         [ div []
-            [ img [ src "https://img.icons8.com/external-itim2101-fill-itim2101/64/000000/external-turtle-plastic-pollution-itim2101-fill-itim2101-2.png", class "mb-4" ] []
+            [ img
+                [ src "https://img.icons8.com/external-itim2101-fill-itim2101/64/000000/external-turtle-plastic-pollution-itim2101-fill-itim2101-2.png"
+                , class "mb-4"
+                ]
+                []
             ]
         , viewGrade result.grade
         , viewPassMsg result.pass
