@@ -5,7 +5,7 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (Decoder, bool, float, succeed)
+import Json.Decode exposing (Decoder, bool, float, nullable, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode as Encode
 import Result exposing (Result)
@@ -32,9 +32,9 @@ type Grade
 
 
 type alias GradeResult =
-    { pass : Bool
-    , missing : Float
-    , grade : Float
+    { pass : Maybe Bool
+    , missing : Maybe Float
+    , grade : Maybe Float
     }
 
 
@@ -55,7 +55,7 @@ init () =
       , practico = NotEntered
       , mejoramiento = NotEntered
       , porcentajePractico = NotEntered
-      , result = GradeResult False 0 0
+      , result = { pass = Nothing, missing = Nothing, grade = Nothing }
       }
     , Cmd.none
     )
@@ -109,26 +109,22 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ class "h-screen flex justify-center items-center gap-6" ]
-        [ div [ class "flex flex-col items-center" ]
-            [ inputComponent "Primer Parcial" UpdatePrimerParcial
-            , inputComponent "Segundo Parcial" UpdateSegundoParcial
-            , inputComponent "Practico" UpdatePractico
-            , inputComponent "Mejoramiento" UpdateMejoramiento
-            , inputComponent "Porcentaje Practico" UpdatePorcentajePractico
-            , button [ class "border border-gray-400 rounded-lg p-2 m-2", onClick CalculateGrade ] [ text "Calcular Nota" ]
-            ]
-        , div [ class "flex flex-col items-center" ]
-            [ div [] [ text <| "Nota Final: " ++ String.fromFloat model.result.grade ]
-            , div []
-                [ text <|
-                    if model.result.pass then
-                        "APROBASTE"
-
-                    else
-                        "KILL YOURSELF"
+    div [ class "h-screen flex flex-col-reverse lg:flex-row justify-center items-center gap-12" ]
+        [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3" ]
+            [ div [ class "flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center" ]
+                [ div [ class "w-full flex flex-col gap-4" ]
+                    [ inputComponent "Primer Parcial" UpdatePrimerParcial
+                    , inputComponent "Segundo Parcial" UpdateSegundoParcial
+                    , inputComponent "Mejoramiento" UpdateMejoramiento
+                    ]
+                , div [ class "w-full flex flex-col gap-4" ]
+                    [ inputComponent "Practico" UpdatePractico
+                    , inputComponent "Porcentaje Practico" UpdatePorcentajePractico
+                    , button [ class "border border-gray-400 rounded-lg bg-blue-900 text-white uppercase p-2 w-full", onClick CalculateGrade ] [ text "Calcular" ]
+                    ]
                 ]
             ]
+        , viewResult model.result
         ]
 
 
@@ -147,7 +143,45 @@ subscriptions model =
 
 inputComponent : String -> (String -> msg) -> Html msg
 inputComponent placeholderMsg msg =
-    input [ class "border border-gray-400 rounded-lg p-2 m-2", onInput msg, placeholder placeholderMsg ] []
+    input [ class "border border-gray-400 rounded-lg p-2 text-right w-full", onInput msg, placeholder placeholderMsg ] []
+
+
+viewGrade : Maybe Float -> Html msg
+viewGrade maybeGrade =
+    case maybeGrade of
+        Just grade ->
+            div []
+                [ text <| String.fromFloat grade
+                ]
+
+        Nothing ->
+            div [] []
+
+
+viewPassMsg : Maybe Bool -> Html msg
+viewPassMsg maybePass =
+    case maybePass of
+        Just pass ->
+            div []
+                [ text <|
+                    if pass then
+                        "Great, you pass"
+
+                    else
+                        "Sad, you didn't pass :("
+                ]
+
+        Nothing ->
+            div [] []
+
+
+viewResult : GradeResult -> Html msg
+viewResult result =
+    div [ class "flex flex-col items-center" ]
+        [ viewPassMsg result.pass
+        , viewGrade result.grade
+        , viewGrade result.missing
+        ]
 
 
 
@@ -192,9 +226,9 @@ payloadEncoder model =
 resultDecoder : Decoder GradeResult
 resultDecoder =
     succeed GradeResult
-        |> required "pass" bool
-        |> required "missing" float
-        |> required "grade" float
+        |> required "pass" (nullable bool)
+        |> required "missing" (nullable float)
+        |> required "grade" (nullable float)
 
 
 getResult : Model -> Cmd Msg
