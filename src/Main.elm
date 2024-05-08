@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, img, input, label, text)
+import Html exposing (Html, button, div, img, input, label, span, text)
 import Html.Attributes exposing (class, src)
 import Html.Events exposing (onClick, onInput)
 import Http
@@ -48,15 +48,20 @@ type alias Model =
     }
 
 
+initModel : Model
+initModel =
+    { primerParcial = NotEntered
+    , segundoParcial = NotEntered
+    , practico = NotEntered
+    , mejoramiento = NotEntered
+    , porcentajePractico = NotEntered
+    , result = GradeResult Nothing Nothing Nothing
+    }
+
+
 init : () -> ( Model, Cmd Msg )
 init () =
-    ( { primerParcial = NotEntered
-      , segundoParcial = NotEntered
-      , practico = NotEntered
-      , mejoramiento = NotEntered
-      , porcentajePractico = NotEntered
-      , result = GradeResult Nothing Nothing Nothing
-      }
+    ( initModel
     , Cmd.none
     )
 
@@ -66,32 +71,44 @@ init () =
 
 
 type Msg
-    = UpdatePrimerParcial String
-    | UpdateSegundoParcial String
-    | UpdatePractico String
-    | UpdateMejoramiento String
-    | UpdatePorcentajePractico String
+    = UpdateField Field String
     | CalculateGrade
     | UpdateResult (Result Http.Error GradeResult)
+
+
+type Field
+    = PrimerParcial
+    | SegundoParcial
+    | Practico
+    | Mejoramiento
+    | PorcentajePractico
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        UpdatePrimerParcial primerParcial ->
-            ( { model | primerParcial = parseGrade primerParcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+        UpdateField field value ->
+            let
+                updateModel =
+                    { model | result = GradeResult Nothing Nothing Nothing }
+                        |> (case field of
+                                PrimerParcial ->
+                                    updateGrade (\m g -> { m | primerParcial = g }) value
 
-        UpdateSegundoParcial segundoParcial ->
-            ( { model | segundoParcial = parseGrade segundoParcial, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+                                SegundoParcial ->
+                                    updateGrade (\m g -> { m | segundoParcial = g }) value
 
-        UpdatePractico practico ->
-            ( { model | practico = parseGrade practico, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+                                Practico ->
+                                    updateGrade (\m g -> { m | practico = g }) value
 
-        UpdateMejoramiento mejoramiento ->
-            ( { model | mejoramiento = parseGrade mejoramiento, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+                                Mejoramiento ->
+                                    updateGrade (\m g -> { m | mejoramiento = g }) value
 
-        UpdatePorcentajePractico porcentaje_practico ->
-            ( { model | porcentajePractico = parseGrade porcentaje_practico, result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+                                PorcentajePractico ->
+                                    updateGrade (\m g -> { m | porcentajePractico = g }) value
+                           )
+            in
+            ( updateModel, Cmd.none )
 
         CalculateGrade ->
             ( model, getResult model )
@@ -100,7 +117,19 @@ update msg model =
             ( { model | result = result }, Cmd.none )
 
         UpdateResult (Err _) ->
-            ( model, Cmd.none )
+            ( { model | result = GradeResult Nothing Nothing Nothing }, Cmd.none )
+
+
+updateGrade : (Model -> Grade -> Model) -> String -> Model -> Model
+updateGrade setGrade value model =
+    let
+        updatedValue =
+            parseGrade value
+
+        updatedModel =
+            setGrade model updatedValue
+    in
+    updatedModel
 
 
 
@@ -113,17 +142,17 @@ view model =
         [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3 border-2 border-blue-950 rounded py-12 px-6" ]
             [ div [ class "flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center" ]
                 [ div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Primer Parcial:" UpdatePrimerParcial
-                    , inputComponent "Segundo Parcial:" UpdateSegundoParcial
-                    , inputComponent "Mejoramiento:" UpdateMejoramiento
+                    [ inputComponent "Primer Parcial:" (UpdateField PrimerParcial)
+                    , inputComponent "Segundo Parcial:" (UpdateField SegundoParcial)
+                    , inputComponent "Mejoramiento:" (UpdateField Mejoramiento)
                     ]
                 , div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Practico:" UpdatePractico
-                    , inputComponent "Porcentaje Practico:" UpdatePorcentajePractico
+                    [ inputComponent "Practico:" (UpdateField Practico)
+                    , inputComponent "Porcentaje Practico:" (UpdateField PorcentajePractico)
                     ]
                 ]
             , button
-                [ class "border border-gray-400 rounded-lg bg-blue-950 text-white uppercase p-2 mt-6 w-full md:w-2/3 lg:w-1/2 mx-auto  self-end"
+                [ class "border border-gray-400 rounded-lg bg-blue-950 text-white uppercase p-2 mt-6 w-full md:w-2/3 lg:w-1/2 mx-auto self-end"
                 , onClick CalculateGrade
                 ]
                 [ text "Calcular" ]
@@ -190,13 +219,13 @@ viewPassMsg : Maybe Bool -> Html msg
 viewPassMsg maybePass =
     case maybePass of
         Just pass ->
-            div [ class <| "text-2xl " ]
+            div [ class <| "text-2xl mt-2" ]
                 [ text <|
                     if pass then
                         "¡Buen trabajo, aprobaste!"
 
                     else
-                        ":c"
+                        "Reprobaste"
                 ]
 
         Nothing ->
