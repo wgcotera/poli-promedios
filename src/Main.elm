@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Html exposing (Html, button, div, img, input, label, span, text)
-import Html.Attributes exposing (class, src)
+import Html.Attributes exposing (class, src, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, bool, float, nullable, succeed)
@@ -90,23 +90,7 @@ update msg model =
         UpdateField field value ->
             let
                 updateModel =
-                    { model | result = GradeResult Nothing Nothing Nothing }
-                        |> (case field of
-                                PrimerParcial ->
-                                    updateGrade (\m g -> { m | primerParcial = g }) value
-
-                                SegundoParcial ->
-                                    updateGrade (\m g -> { m | segundoParcial = g }) value
-
-                                Practico ->
-                                    updateGrade (\m g -> { m | practico = g }) value
-
-                                Mejoramiento ->
-                                    updateGrade (\m g -> { m | mejoramiento = g }) value
-
-                                PorcentajePractico ->
-                                    updateGrade (\m g -> { m | porcentajePractico = g }) value
-                           )
+                    updateGradeModel field value model
             in
             ( updateModel, Cmd.none )
 
@@ -120,16 +104,27 @@ update msg model =
             ( { model | result = GradeResult Nothing Nothing Nothing }, Cmd.none )
 
 
-updateGrade : (Model -> Grade -> Model) -> String -> Model -> Model
-updateGrade setGrade value model =
+updateGradeModel : Field -> String -> Model -> Model
+updateGradeModel field value model =
     let
-        updatedValue =
-            parseGrade value
+        updateField =
+            case field of
+                PrimerParcial ->
+                    { model | primerParcial = parseGrade value }
 
-        updatedModel =
-            setGrade model updatedValue
+                SegundoParcial ->
+                    { model | segundoParcial = parseGrade value }
+
+                Practico ->
+                    { model | practico = parseGrade value }
+
+                Mejoramiento ->
+                    { model | mejoramiento = parseGrade value }
+
+                PorcentajePractico ->
+                    { model | porcentajePractico = parseGrade value }
     in
-    updatedModel
+    { updateField | result = GradeResult Nothing Nothing Nothing }
 
 
 
@@ -142,13 +137,13 @@ view model =
         [ div [ class "flex flex-col items-center xl:w-1/3 lg:w-1/2 sm:w-2/3 border-2 border-blue-950 rounded py-12 px-6" ]
             [ div [ class "flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center" ]
                 [ div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Primer Parcial:" (UpdateField PrimerParcial)
-                    , inputComponent "Segundo Parcial:" (UpdateField SegundoParcial)
-                    , inputComponent "Mejoramiento:" (UpdateField Mejoramiento)
+                    [ inputComponent "Primer Parcial:" PrimerParcial model
+                    , inputComponent "Segundo Parcial:" SegundoParcial model
+                    , inputComponent "Mejoramiento:" Mejoramiento model
                     ]
                 , div [ class "w-full flex flex-col gap-4" ]
-                    [ inputComponent "Practico:" (UpdateField Practico)
-                    , inputComponent "Porcentaje Practico:" (UpdateField PorcentajePractico)
+                    [ inputComponent "Practico:" Practico model
+                    , inputComponent "Porcentaje Practico:" PorcentajePractico model
                     ]
                 ]
             , button
@@ -170,15 +165,54 @@ subscriptions model =
     Sub.none
 
 
+inputComponent : String -> Field -> Model -> Html Msg
+inputComponent labelTxt field model =
+    let
+        fieldValue =
+            case field of
+                PrimerParcial ->
+                    model.primerParcial
 
--- COMPONENTS
+                SegundoParcial ->
+                    model.segundoParcial
 
+                Practico ->
+                    model.practico
 
-inputComponent : String -> (String -> msg) -> Html msg
-inputComponent labelTxt msg =
+                Mejoramiento ->
+                    model.mejoramiento
+
+                PorcentajePractico ->
+                    model.porcentajePractico
+
+        errorMessage =
+            case fieldValue of
+                Entered value ->
+                    if not (isValidGrade value) then
+                        Just "La nota debe ser un número entre 0 y 100"
+
+                    else
+                        Nothing
+
+                _ ->
+                    Just "  "
+
+        inputAttrs =
+            [ class "border border-gray-400 rounded-lg p-2 text-right w-full"
+            , type_ "number"
+            , onInput (UpdateField field)
+            , value (String.fromFloat <| gradeToFloat fieldValue)
+            ]
+    in
     div []
         [ label [ class "text-blue-950" ] [ text labelTxt ]
-        , input [ class "border border-gray-400 rounded-lg p-2 text-right w-full", onInput msg ] []
+        , input inputAttrs []
+        , case errorMessage of
+            Just msg ->
+                span [ class "text-red-700 text-sm" ] [ text msg ]
+
+            Nothing ->
+                text ""
         ]
 
 
@@ -255,6 +289,11 @@ viewResult result =
 
 
 -- HELPERS
+
+
+isValidGrade : Float -> Bool
+isValidGrade grade =
+    grade >= 0 && grade <= 100
 
 
 parseGrade : String -> Grade
