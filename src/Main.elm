@@ -11,7 +11,7 @@ import Json.Encode as Encode
 import Result exposing (Result)
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.element
         { init = init
@@ -23,6 +23,11 @@ main =
 
 
 -- MODEL
+
+
+type alias Flags =
+    { apiBase : String
+    }
 
 
 type Grade
@@ -45,6 +50,7 @@ type alias Model =
     , mejoramiento : Grade
     , porcentajePractico : Grade
     , result : GradeResult
+    , url : String
     }
 
 
@@ -56,12 +62,13 @@ initModel =
     , mejoramiento = NotEntered
     , porcentajePractico = NotEntered
     , result = GradeResult Nothing Nothing Nothing
+    , url = ""
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init () =
-    ( initModel
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( { initModel | url = flags.apiBase }
     , Cmd.none
     )
 
@@ -342,7 +349,7 @@ resultDecoder =
 getResult : Model -> Cmd Msg
 getResult model =
     Http.post
-        { url = "http://localhost:3000/promedios"
+        { url = model.url ++ "/promedios"
         , body = Http.jsonBody <| payloadEncoder model
         , expect = Http.expectJson UpdateResult resultDecoder
         }
